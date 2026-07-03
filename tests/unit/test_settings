@@ -1,0 +1,18 @@
+from chess_ai_bot.config.settings import Settings
+
+
+def test_settings_can_build_mysql_database_url() -> None:
+    settings = Settings(
+        database_url=None,
+        mysql_host="127.0.0.1",
+        mysql_port=3307,
+        mysql_database="chess_ai_bot",
+        mysql_user="chess_user",
+        mysql_password="chess_password",
+    )
+
+    database_url = settings.build_database_url()
+
+    assert database_url.startswith("mysql+pymysql://chess_user:chess_password@127.0.0.1:3307")
+    assert "chess_ai_bot" in database_url
+    assert "charset=utf8mb4" in database_url

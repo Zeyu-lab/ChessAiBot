@@ -3,3 +3,10 @@ pydantic-settings
 python-dotenv
 SQLAlchemy
 PyMySQL
+
+SQLAlchemy>=2.0,<3.0
+PyMySQL>=1.1,<2.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+python-dotenv>=1.0,<2.0
+cryptography>=42.0,<46.0
