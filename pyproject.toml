@@ -19,7 +19,6 @@ include = ["chess_ai_bot*"]
 namespaces = false
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
 testpaths = ["tests"]
 markers = [
     "integration: tests that require local infrastructure"
