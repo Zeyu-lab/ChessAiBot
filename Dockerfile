@@ -1,15 +1,25 @@
 FROM python:3.12-slim
 
-WORKDIR /app
-
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app/src
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-COPY requirements.txt requirements-dev.txt ./
+WORKDIR /workspace
 
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        default-mysql-client \
+        git \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+COPY requirements.txt requirements-dev.txt /workspace/
 
-CMD ["python", "scripts/check_env.py"]
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir \
+        -r /workspace/requirements.txt \
+        -r /workspace/requirements-dev.txt
+
+COPY . /workspace
+
+CMD ["tail", "-f", "/dev/null"]
