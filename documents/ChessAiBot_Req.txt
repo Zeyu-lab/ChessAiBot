@@ -1,0 +1,738 @@
+# ChessAiBot Requirements and Roadmap
+
+## 0. Document Purpose
+
+This document defines the product scope, engineering requirements, algorithm roadmap, and acceptance criteria for ChessAiBot.
+
+Requirement levels:
+
+- **Must**: required for the intended project outcome.
+- **Should**: valuable after the related Must requirements are stable.
+- **Could**: optional enhancement that must not delay the main algorithm roadmap.
+- **Out of scope**: intentionally excluded from the project.
+
+---
+
+## 1. Project Positioning
+
+ChessAiBot is an **algorithm-centered, local-first Python engineering project**.
+
+Its primary purpose is to implement, verify, compare, and improve practical chess algorithms. Enterprise-style engineering exists to support the algorithms through maintainable architecture, automated testing, reproducible environments, persistence, logging, benchmarking, reporting, and documentation.
+
+> Chess algorithms are the core product.  
+> Enterprise Python engineering makes the algorithms reliable, measurable, and maintainable.
+
+ChessAiBot is not intended to become a WebApp, SaaS platform, public chess website, or cloud-hosted multiplayer product.
+
+### Primary portfolio value
+
+The completed project should demonstrate that its developer can:
+
+- Design maintainable Python packages and interfaces.
+- Implement non-trivial search algorithms rather than only call an external engine.
+- Verify chess rules and algorithm correctness with automated tests.
+- Measure and explain algorithm performance with reproducible benchmarks.
+- Persist useful experiment and match data in MySQL.
+- Build a reliable local workflow with Docker and CI.
+- Produce technical documentation and evidence suitable for engineering review.
+
+---
+
+## 2. Product Goals
+
+ChessAiBot must:
+
+1. Run as a local Python application.
+2. Represent chess positions and apply legal moves correctly.
+3. Implement Minimax and Alpha-Beta search engines.
+4. Support multiple AI strength levels and algorithm selection.
+5. Recommend a best move and explain the search result with useful metrics.
+6. Run AI-vs-AI matches and batch simulations.
+7. Run a Trainer experiment in which AI-1 and AI-2 complete a configurable self-play series, with 100 games as the default, and the resulting candidate is evaluated against AI-3.
+8. Save games, moves, engine versions, match results, training runs, and benchmark results in MySQL.
+9. Generate reproducible statistics, reports, and performance comparisons.
+10. Demonstrate professional Python engineering through tests, typing, logging, documentation, Docker, and GitHub Actions.
+
+---
+
+## 3. Non-Goals and Scope Boundaries
+
+The following are out of scope for the main roadmap:
+
+- Public website deployment
+- Web-based user interface
+- User registration and authentication
+- Online chess rooms or real-time multiplayer
+- SaaS subscriptions or multi-tenant architecture
+- Managed cloud infrastructure
+- PostgreSQL migration
+- Redis caching
+- Celery, RQ, or distributed task queues
+- Public API security features such as API keys and rate limiting
+- Large neural-network training systems
+
+These items must not be added only to make the project appear more “enterprise.” A new infrastructure component should be introduced only when a measured project requirement justifies it.
+
+FastAPI may be added later as an optional **localhost-only engine adapter**. It must not become the main product or control the core architecture.
+
+---
+
+## 4. Engineering Principles
+
+### 4.1 Algorithm first
+
+Core development priority:
+
+```text
+Correctness -> Tests -> Baseline Algorithm -> Benchmark -> Optimization -> Persistence -> Presentation
+```
+
+Infrastructure work must support this order rather than delay it.
+
+### 4.2 Pure in-memory search
+
+Board traversal, move generation, position evaluation, Minimax, and Alpha-Beta search must run in Python memory.
+
+MySQL must not be queried or updated inside the search tree. Persistence happens only at clear boundaries, such as after a move, match, benchmark, or training run.
+
+### 4.3 Dependency direction
+
+The core chess and engine modules must not depend on FastAPI, CLI presentation, MySQL, SQLAlchemy, or report-generation libraries.
+
+Expected dependency direction:
+
+```text
+CLI / Optional Local API
+        |
+Application Services
+        |
+Chess Core + Engine
+
+Persistence and Analytics are adapters used at application boundaries.
+```
+
+### 4.4 Evidence over technology count
+
+Enterprise quality is demonstrated through correctness, maintainability, reproducibility, and measurable results—not by adding the largest possible number of frameworks.
+
+### 4.5 Custom implementation with reference validation
+
+The main board, rule, evaluation, Minimax, and Alpha-Beta behavior should be implemented in the project.
+
+An established chess library such as `python-chess` may be used in development or tests as a correctness oracle, reference data source, or PGN/FEN helper. It should not silently replace the project’s main algorithm implementation.
+
+---
+
+## 5. Functional Requirements
+
+### 5.1 Chess core — Must
+
+The core module must support:
+
+- Board representation
+- Piece type and color representation
+- Square and move representation
+- Side-to-move tracking
+- Move application and undo
+- Position cloning or reversible state transitions
+- Castling rights
+- En passant state
+- Halfmove and fullmove counters where required
+- FEN import and export
+- Move history
+- Game status representation
+
+The design should favor correctness and testability before micro-optimization.
+
+### 5.2 Rule engine — Must
+
+The rule engine must support:
+
+- Pseudo-legal move generation
+- Attack detection
+- Check detection
+- Legal move filtering
+- Checkmate detection
+- Stalemate detection
+- Castling
+- En passant
+- Pawn promotion
+- Draw conditions selected for the initial release
+- Rejection of invalid moves with structured errors
+
+Move generation must be verified with unit tests, edge-case positions, and Perft-style reference counts before AI search is treated as reliable.
+
+### 5.3 Engine interface — Must
+
+All engines must implement a common interface. At minimum, an engine search result should be able to report:
+
+- Selected move
+- Evaluation score
+- Search depth
+- Nodes searched
+- Elapsed time
+- Nodes per second
+- Engine name and version
+- Principal variation when available
+
+Minimax and Alpha-Beta names must remain explicit in code, configuration, documentation, and benchmark output so their behavior can be compared clearly.
+
+### 5.4 Initial engines — Must
+
+The project must implement:
+
+1. **RandomEngine** — correctness and integration baseline.
+2. **MinimaxEngine** — baseline adversarial search.
+3. **AlphaBetaEngine** — Minimax with Alpha-Beta pruning.
+
+The first evaluation function must include material balance. Later versions should be able to add positional terms without rewriting the search interface.
+
+### 5.5 Engine improvements — Should
+
+After baseline correctness, the engine should support:
+
+- Configurable search depth
+- Move ordering
+- Search timeout or budget
+- Principal variation tracking
+- Transposition table
+- Iterative deepening
+- Improved positional evaluation
+
+Every optimization should be compared against a stable baseline. An optimization is not considered successful only because the code is more complex.
+
+### 5.6 Strength levels — Must
+
+ChessAiBot must provide at least three selectable strength levels:
+
+- **AI-1**: beginner baseline using a shallow or intentionally limited search.
+- **AI-2**: intermediate engine using stronger depth or search configuration.
+- **AI-3**: strongest current stable engine using the best verified configuration.
+
+The exact depths and features may change after benchmark evidence. Strength levels must be configuration-driven rather than implemented as duplicated engine code.
+
+### 5.7 Best-move recommendation — Must
+
+Given a valid position, the application must be able to recommend a move and display:
+
+- Recommended move
+- Engine and strength level
+- Evaluation score
+- Search depth
+- Nodes searched
+- Calculation time
+- Principal variation or concise explanation when available
+
+### 5.8 AI-vs-AI matches — Must
+
+The application must support:
+
+- Single engine-vs-engine matches
+- Different engine versions or configurations
+- Configurable color assignment
+- Batch match execution
+- Reproducible random seed where randomness is used
+- Win, loss, draw, and error counts
+- Per-move search metrics
+- Match-level timing and node statistics
+
+### 5.9 Trainer experiment — Must for the advanced core release
+
+The initial Trainer is an experiment and parameter-improvement pipeline, not necessarily a neural network.
+
+It must support this workflow:
+
+1. Configure AI-1 and AI-2.
+2. Run a self-play series with 100 games as the default.
+3. Collect outcomes, evaluations, search metrics, and configuration data.
+4. Produce a candidate improvement through a defined rule, parameter change, or later training method.
+5. Challenge the candidate against AI-3.
+6. Record the candidate’s win/draw/loss rate.
+7. Generate a comparison report and improvement curve.
+
+The number of games must be configurable for fast development tests.
+
+### 5.10 CLI — Must
+
+CLI is the primary user and developer interface. Planned commands should include:
+
+```text
+chessbot play
+chessbot recommend
+chessbot match
+chessbot batch-match
+chessbot benchmark
+chessbot train
+chessbot export
+```
+
+Exact command names may evolve, but the CLI must allow the core workflows to run without a web server.
+
+### 5.11 Optional local API — Could
+
+FastAPI may expose selected local operations such as:
+
+- `GET /health`
+- `POST /recommend`
+- `POST /matches`
+- `GET /benchmarks/{id}`
+
+Requirements:
+
+- Bind to localhost by default.
+- Reuse application services rather than duplicate logic.
+- Keep FastAPI and Pydantic objects outside the chess core.
+- Do not introduce accounts, public deployment, CORS complexity, or SaaS features.
+
+---
+
+## 6. Persistence Requirements
+
+### 6.1 Selected database
+
+The supported project database is **MySQL running locally through Docker Compose**.
+
+The persistence layer should use:
+
+- SQLAlchemy
+- Alembic migrations
+- Repository interfaces where they improve testability
+- Transaction boundaries at the service layer
+- Environment-based connection configuration
+
+SQLite, PostgreSQL, and Redis are not part of the main requirements.
+
+### 6.2 Required data
+
+The database should be able to store:
+
+- Games
+- Moves
+- Engine definitions
+- Engine versions and configurations
+- Match runs
+- Match results
+- Per-move or summarized search metrics
+- Benchmark runs
+- Training runs
+- Training evaluations
+- Generated report metadata
+
+### 6.3 Persistence reliability
+
+Database writes must not change the outcome of a completed search. Failed persistence should produce a clear error and log entry without corrupting engine state.
+
+---
+
+## 7. Analytics and Benchmark Requirements
+
+### 7.1 Required metrics
+
+Benchmarks must support relevant metrics such as:
+
+- Selected move
+- Evaluation score
+- Search depth
+- Total nodes
+- Nodes per second
+- Elapsed time
+- Alpha-Beta cutoff count or pruning ratio
+- Engine win/draw/loss rate
+- Average move time
+- Move-time distribution
+- Error or timeout count
+
+### 7.2 Fair comparison
+
+Engine comparisons must record:
+
+- Engine name and version
+- Configuration
+- Input FEN or test-suite identifier
+- Hardware and Python version where relevant
+- Random seed where relevant
+- Date and duration
+
+Minimax and Alpha-Beta comparisons must use equivalent positions, depths, evaluation behavior, and execution conditions whenever possible.
+
+### 7.3 Reports
+
+The project must support Markdown and JSON report output. CSV should be supported for tabular experiment data.
+
+Charts should be added when they communicate useful evidence, including:
+
+- Search time by depth
+- Nodes searched by depth
+- Alpha-Beta speedup
+- Engine win rate
+- Trainer performance over time
+
+Pandas and Matplotlib may be used for offline analysis and report generation. They must not become dependencies of the core engine.
+
+---
+
+## 8. Testing and Quality Requirements
+
+### 8.1 Testing — Must
+
+The test suite must include:
+
+- Unit tests for chess value objects and state transitions
+- Rule tests for every piece and special move
+- Check, checkmate, and stalemate tests
+- Move application and undo tests
+- FEN round-trip tests
+- Perft regression tests
+- Evaluator tests
+- Minimax tests on controlled positions
+- Alpha-Beta correctness comparisons against Minimax
+- Engine contract tests
+- Repository and MySQL integration tests
+- CLI smoke tests
+- Benchmark schema or output tests
+- Trainer workflow tests using small game counts
+
+Slow tests should be marked separately so the normal development loop remains fast.
+
+### 8.2 Quality tools — Must or Should
+
+- Pytest — Must
+- Type hints for public interfaces — Must
+- Ruff linting and formatting — Must
+- Mypy or equivalent static type checking — Should
+- Pytest coverage report — Should
+- Pre-commit hooks — Should
+- Dependency vulnerability scanning — Could
+- Bandit security scan — Could
+
+### 8.3 CI — Must
+
+GitHub Actions must run the fast test and lint workflow on relevant pushes and pull requests.
+
+CI should later include:
+
+- Unit tests
+- Selected integration tests
+- Ruff
+- Type checking
+- Coverage reporting
+- Docker image build validation
+
+Long-running batch matches and Trainer experiments should not run on every commit.
+
+---
+
+## 9. Logging, Errors, and Configuration
+
+### 9.1 Logging — Must
+
+Logs must be useful for debugging and experiments without flooding the search loop.
+
+Important events include:
+
+- Application startup and shutdown
+- Configuration summary without secrets
+- Database connection state
+- Match start and completion
+- Engine name, version, and configuration
+- Benchmark and Trainer run identifiers
+- Exceptions, timeouts, and persistence failures
+
+Detailed per-node search logging should be disabled by default because it can distort performance results.
+
+### 9.2 Error handling — Must
+
+The project should use domain-specific exceptions or structured result types for:
+
+- Invalid position
+- Illegal move
+- Game already complete
+- Search timeout
+- Unsupported engine configuration
+- Database failure
+- Report generation failure
+
+### 9.3 Configuration — Must
+
+Configuration must support:
+
+- Environment variables for infrastructure settings
+- Checked-in `.env.example` without secrets
+- Typed settings
+- Engine configuration objects
+- Separate test configuration
+- Reproducible benchmark and Trainer configurations
+
+---
+
+## 10. Local Environment and DevOps
+
+The supported development environment consists of:
+
+- Python 3.12
+- Dockerfile for the application
+- Docker Compose
+- MySQL 8.x container
+- Application container
+- Persistent local MySQL volume
+- Health checks
+- Makefile or documented commands
+- GitHub Actions
+
+Required local workflow:
+
+```bash
+# Build and start
+docker compose up -d --build
+
+# Check services
+docker compose ps
+
+# Run tests
+docker compose exec app python -m pytest
+
+# Enter the application container
+docker compose exec app bash
+
+# Stop containers while keeping database data
+docker compose down
+```
+
+Cloud deployment is not required.
+
+---
+
+## 11. Architecture and Main Modules
+
+Recommended structure:
+
+```text
+ChessAiBot
+├── README.md
+├── LICENSE
+├── .gitignore
+├── .env.example
+├── pyproject.toml
+├── requirements.txt
+├── requirements-dev.txt
+├── Dockerfile
+├── docker-compose.yml
+├── Makefile
+├── documents
+│   ├── vision.md
+│   ├── requirements.md
+│   ├── architecture.md
+│   ├── database-design.md
+│   ├── testing-guide.md
+│   ├── benchmark-guide.md
+│   └── roadmap.md
+├── notes
+│   └── devLog.md
+├── src
+│   └── chess_ai_bot
+│       ├── core
+│       ├── engine
+│       ├── application
+│       ├── persistence
+│       ├── analytics
+│       ├── cli
+│       ├── api
+│       ├── config
+│       └── utils
+├── tests
+│   ├── unit
+│   ├── integration
+│   ├── engine
+│   ├── perft
+│   └── fixtures
+├── scripts
+│   ├── check_env.py
+│   ├── run_benchmark.py
+│   ├── run_training.py
+│   └── export_report.py
+└── .github
+    └── workflows
+        ├── test.yml
+        ├── lint.yml
+        └── docker.yml
+```
+
+### Module responsibilities
+
+#### `core`
+
+Board, pieces, moves, game state, rules, status, and FEN. No database, CLI, API, or analytics dependencies.
+
+#### `engine`
+
+Engine interface, evaluators, Random, Minimax, Alpha-Beta, move ordering, search results, and later transposition support.
+
+#### `application`
+
+Use cases such as recommend move, play game, run match, run benchmark, run Trainer, and save results.
+
+#### `persistence`
+
+SQLAlchemy models, MySQL sessions, migrations, and repositories.
+
+#### `analytics`
+
+Statistics, comparisons, chart generation, and Markdown/JSON/CSV exports.
+
+#### `cli`
+
+Primary local interface.
+
+#### `api`
+
+Optional localhost-only adapter added after core workflows are stable.
+
+---
+
+## 12. Development Roadmap
+
+### V0.1A — Engineering Foundation — Completed
+
+- Repository and `src` package structure
+- Initial dependency and configuration files
+- Settings, logging, exceptions, and timing utilities
+- Pytest smoke test
+- GitHub Actions test workflow
+
+### V0.1B — Local Infrastructure — Completed
+
+- Application Dockerfile
+- Docker Compose setup
+- Local MySQL container
+- Environment variables and port configuration
+- Application-to-database integration
+
+### V0.1C — Environment Stabilization — Completed
+
+- Docker Compose configuration repair
+- MySQL health check correction
+- Repeatable build and startup workflow
+- Stable environment and test execution
+
+### V0.2A — Chess Domain Foundation
+
+- Board, piece, square, move, and game-state models
+- Move application and undo
+- FEN import/export
+- Core unit tests
+
+### V0.2B — Rule Engine
+
+- Pseudo-legal and legal move generation
+- Check, checkmate, and stalemate
+- Castling, promotion, and en passant
+- Perft and regression verification
+
+### V0.3A — Baseline AI
+
+- Engine interface
+- RandomEngine
+- Material evaluator
+- MinimaxEngine
+- Depth, node, timing, and best-move output
+
+### V0.3B — Alpha-Beta and Benchmarking
+
+- AlphaBetaEngine
+- Move ordering
+- Minimax vs Alpha-Beta comparison
+- Reproducible benchmark output
+
+### V0.4 — Strength Levels and Recommendation
+
+- AI-1, AI-2, and AI-3 configurations
+- Runtime engine and strength selection
+- Best-move recommendation
+- Principal variation and explanation output
+
+### V0.5 — Matches, Persistence, and Reports
+
+- AI-vs-AI single and batch matches
+- MySQL game and result persistence
+- Match statistics
+- Markdown, JSON, and CSV exports
+- Performance charts
+
+### V0.6 — Trainer
+
+- AI-1 vs AI-2 self-play pipeline
+- Default 100-game experiment
+- Candidate configuration or parameter improvement
+- Candidate vs AI-3 challenge
+- Win-rate and improvement curves
+
+### V0.7 — Product Hardening
+
+- Complete CLI workflow
+- Coverage and regression improvements
+- Documentation and architecture diagrams
+- Optional localhost FastAPI adapter
+
+### V1.0 — Portfolio Release
+
+- Stable end-to-end local workflow
+- Verified core rules and engines
+- Reproducible benchmarks
+- Trainer demonstration
+- CI and Docker validation
+- Polished README and setup guide
+- Final benchmark report and resume evidence
+
+Future V2/V3 work may improve evaluation, search, training methods, and visualization, but it must preserve the local-first, algorithm-centered direction.
+
+---
+
+## 13. Release Acceptance Criteria
+
+V1.0 is acceptable when:
+
+1. A new developer can start the documented environment with Docker Compose.
+2. Fast tests pass locally and in GitHub Actions.
+3. The rule engine passes the selected Perft and regression suite.
+4. Minimax and Alpha-Beta return equivalent results on controlled comparison positions.
+5. Benchmark reports show depth, nodes, time, nodes per second, and engine version.
+6. AI-1, AI-2, and AI-3 can be selected without duplicated engine implementations.
+7. A best-move recommendation can be generated through CLI.
+8. An AI-vs-AI batch can run and persist results in MySQL.
+9. The default 100-game Trainer workflow can produce a candidate-vs-AI-3 report.
+10. The repository includes setup, architecture, testing, database, benchmark, and roadmap documentation.
+11. No WebApp, account system, public deployment, or unrelated infrastructure is required to demonstrate the main workflow.
+
+---
+
+## 14. Resume Evidence Targets
+
+Potential resume statements must be supported by repository evidence and measured results. Examples:
+
+- Built a local-first Python chess engine with custom legal move generation, Minimax, and Alpha-Beta pruning behind typed, interchangeable engine interfaces.
+- Designed automated Perft, unit, regression, integration, and CI testing to verify rule correctness and prevent engine regressions.
+- Benchmarked Minimax and Alpha-Beta across controlled positions, measuring search depth, node count, pruning behavior, move time, and nodes per second.
+- Developed configurable AI strength levels and batch AI-vs-AI experiments with MySQL persistence and reproducible Markdown/JSON/CSV reports.
+- Implemented a 100-game self-play Trainer pipeline and evaluated candidate improvements against a stable AI-3 benchmark engine.
+- Containerized the Python and MySQL development environment with Docker Compose and automated quality checks with GitHub Actions.
+
+Final resume bullets should include real measured values only after the corresponding benchmark is complete.
+
+---
+
+## 15. Current Decision Summary
+
+- Game: international chess
+- Product type: local-first Python software
+- Primary focus: custom chess rules, search algorithms, and engine comparison
+- Primary interface: CLI
+- Database: MySQL through Docker Compose
+- Search execution: pure Python in memory
+- Persistence: match, move, engine, benchmark, and Trainer results
+- FastAPI: optional localhost adapter after the main workflow is stable
+- Testing priority: unit tests, Perft, regression tests, engine comparisons, and integration tests
+- Current completed stage: V0.1A–V0.1C engineering environment
+- Current next stage: V0.2A Chess Domain Foundation
+- Explicit exclusions: WebApp, SaaS, user accounts, online rooms, public cloud deployment, PostgreSQL, Redis, and distributed workers
+
+The next development task is to implement the chess domain foundation and its tests without adding new infrastructure unless the algorithm work produces a concrete need.
